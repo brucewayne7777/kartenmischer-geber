@@ -1,0 +1,22 @@
+# Build output
+Debug/
+Release/
+*.o
+*.d
+*.elf
+*.map
+*.lst
+*.bin
+*.hex
+
+# IDE metadata cache
+.settings/
+.metadata/
+*.log
+
+# Launch/debug configs
+*.launch
+
+# Other temporary files
+*.tmp
+*.bak
