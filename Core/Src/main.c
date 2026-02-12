@@ -58,6 +58,10 @@ TIM_HandleTypeDef htim8;
 
 /* USER CODE BEGIN PV */
 
+// Startzustand: System steht, wartet auf Tastendruck
+volatile SystemState_t g_SystemState = SYSTEM_EMERGENCY_STOP;
+volatile uint8_t g_RestartFromTop = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -68,10 +72,42 @@ static void MX_SPI1_Init(void);
 static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
+void All_Motors_Stop_Immediate(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+// Prüft die Drehgeber-Taste (ENC_SW, aktiv LOW) und schaltet RUN <-> EMERGENCY_STOP
+void Check_Encoder_Button(void)
+{
+  static GPIO_PinState last = GPIO_PIN_SET; // Pull-Up: nicht gedrückt = HIGH
+  GPIO_PinState now = HAL_GPIO_ReadPin(ENC_SW_GPIO_Port, ENC_SW_Pin);
+
+  // Flanke HIGH -> LOW
+  if (now == GPIO_PIN_RESET && last == GPIO_PIN_SET) {
+    HAL_Delay(30); // Entprellen
+    now = HAL_GPIO_ReadPin(ENC_SW_GPIO_Port, ENC_SW_Pin);
+    if (now == GPIO_PIN_RESET) {
+      if (g_SystemState == SYSTEM_RUN) {
+        // -> echter Not-Stopp
+        g_SystemState = SYSTEM_EMERGENCY_STOP;
+        All_Motors_Stop_Immediate();
+      } else {
+        // -> Neustart von oben
+        g_RestartFromTop = 1;
+        g_SystemState = SYSTEM_RUN;
+      }
+
+      // Warten bis Taste losgelassen ist
+      while (HAL_GPIO_ReadPin(ENC_SW_GPIO_Port, ENC_SW_Pin) == GPIO_PIN_RESET) {
+        HAL_Delay(10);
+      }
+    }
+  }
+  last = now;
+}
 
 /* USER CODE END 0 */
 
@@ -107,6 +143,15 @@ int main(void)
   MX_SPI1_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+  
+  // WICHTIG: Alle Motoren sofort stoppen beim Start (verhindert ungewolltes Anlaufen)
+  // Mehrfaches Setzen der Pins für robuste Initialisierung der L298N H-Brücke
+  All_Motors_Stop_Immediate();
+  HAL_Delay(10); // Kurze Pause für Pin-Stabilisierung
+  All_Motors_Stop_Immediate(); // Zweites Setzen für Sicherheit
+  HAL_Delay(10);
+  All_Motors_Stop_Immediate(); // Drittes Setzen für maximale Sicherheit
+  
   HAL_Delay(500); // Power stabilization delay
   HAL_TIM_Base_Start(&htim1); // Start Timer for delay_us
 
@@ -160,33 +205,75 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
+// Alte Hauptlogik beibehalten (Standard aktiv lassen)
+#if 1
+
 #if DISPLAY_ENCODER_CONNECTED
-		// ===== MIT DISPLAY: Phasen 1-3 wie bisher =====
-		Menu_Show_Message("Phase 1", "Sortieren...");
-		Phase1_Sortieren_1Minute();
-		Menu_Show_Message("Phase 2", "Transport...");
-		Phase2_Transport_1Minute();
-		Menu_Show_Message("Phase 3", "Verteilen...");
-		Phase3_Auswurf(spieler);
-		Menu_Show_Message("FERTIG", "Neustart in 5s");
-		HAL_Delay(5000);
+    // ===== MIT DISPLAY: Phasen 1-3 wie bisher =====
+    Menu_Show_Message("Phase 1", "Sortieren...");
+    g_SystemState = SYSTEM_RUN;  // Wichtig: System muss auf RUN sein, damit neue Phase 1 funktioniert
+    Phase1_Sortieren_1Minute();
+    Menu_Show_Message("Phase 2", "Transport...");
+    Phase2_Transport_1Minute();
+    Menu_Show_Message("Phase 3", "Verteilen...");
+    Phase3_Auswurf(spieler);
+    Menu_Show_Message("FERTIG", "Neustart in 5s");
+    HAL_Delay(5000);
 #else
-		// ===== OHNE DISPLAY: Automatischer Phasen-Test (Wie früher) =====
-		
-		// 1. Minute: Sortieren
-		Phase1_Sortieren_1Minute();
-		HAL_Delay(1000);
+    // ===== OHNE DISPLAY: Automatischer Phasen-Test (Wie früher) =====
 
-		// 2. Minute: Transport
-		Phase2_Transport_1Minute();
-		HAL_Delay(1000);
+    // 1. Minute: Sortieren
+    g_SystemState = SYSTEM_RUN;  // Wichtig: System muss auf RUN sein, damit neue Phase 1 funktioniert
+    Phase1_Sortieren_1Minute();
+    HAL_Delay(1000);
 
-		// 3. Auswurf (Test mit 4 Spielern)
-		Phase3_Auswurf(4);
-		
-		HAL_Delay(5000); // Pause vor Neustart
+    // 2. Minute: Transport
+    Phase2_Transport_1Minute();
+    HAL_Delay(1000);
+
+    // 3. Auswurf (Test mit 4 Spielern)
+    Phase3_Auswurf(4);
+
+    HAL_Delay(5000); // Pause vor Neustart
 #endif
-	}
+
+#endif // Ende alte Hauptlogik
+
+// Neue Hauptlogik: Not-Stopp & Sensorbasierte Phasen (zunächst deaktiviert)
+#if 0
+    // 1. Warten, bis System per Drehgeber-Taste gestartet wird
+    while (g_SystemState == SYSTEM_EMERGENCY_STOP) {
+      Check_Encoder_Button();
+      HAL_Delay(50);
+    }
+
+    if (g_RestartFromTop) {
+      g_RestartFromTop = 0;
+
+      int spieler_local = 4; // Default ohne Display
+
+#if DISPLAY_ENCODER_CONNECTED
+      // Wenn Display wieder zuverlässig funktioniert, kann hier
+      // wieder die Auswahl per Drehgeber aktiviert werden:
+      // spieler_local = Menu_Select_Player_Count();
+#endif
+
+      // Phase 1: Sortieren mit Sensor oben
+      Phase1_Sortieren_1Minute();
+      if (g_SystemState == SYSTEM_EMERGENCY_STOP) continue;
+
+      // Phase 2: Transport mit Sensor in der Mitte
+      Phase2_Transport_1Minute();
+      if (g_SystemState == SYSTEM_EMERGENCY_STOP) continue;
+
+      // Phase 3: Auswurf mit Sensor unten
+      Phase3_Auswurf(spieler_local);
+      // Phase 3 kann am Ende g_SystemState = SYSTEM_EMERGENCY_STOP setzen,
+      // damit auf erneuten Tastendruck gewartet wird.
+    }
+#endif // Ende neue Hauptlogik
+
+  }
   /* USER CODE END 3 */
 }
 
@@ -442,6 +529,25 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL; // Externer Pullup an CS wäre besser, aber NOPULL geht meist
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH; // WICHTIG!
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  
+  // 3. WICHTIG: Alle Motor-Pins explizit auf RESET setzen (verhindert Floating bei L298N)
+  // Dies muss NACH der GPIO-Init passieren, damit die Pins sicher konfiguriert sind
+  // M2: Beide Richtungspins explizit auf RESET
+  HAL_GPIO_WritePin(M2_WelleLinks_IN3_GPIO_Port, M2_WelleLinks_IN3_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(M2_WelleLinks_IN4_GPIO_Port, M2_WelleLinks_IN4_Pin, GPIO_PIN_RESET);
+  // M1: Beide Richtungspins explizit auf RESET
+  HAL_GPIO_WritePin(M1_SchieberOben_IN1_M1_DIR_GPIO_Port, M1_SchieberOben_IN1_M1_DIR_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(M1_SchieberOben_IN2_M1_DIR_GPIO_Port, M1_SchieberOben_IN2_M1_DIR_Pin, GPIO_PIN_RESET);
+  // M3: Beide Richtungspins explizit auf RESET
+  HAL_GPIO_WritePin(M3_WelleRechts_IN1_GPIO_Port, M3_WelleRechts_IN1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(M3_WelleRechts_IN2_GPIO_Port, M3_WelleRechts_IN2_Pin, GPIO_PIN_RESET);
+  // M4, M5, M6, M7, Stepper: Alle auf RESET
+  HAL_GPIO_WritePin(M4_SchieberLinks_IN3_GPIO_Port, M4_SchieberLinks_IN3_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(M5_SchieberRechts_IN1_GPIO_Port, M5_SchieberRechts_IN1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(M6_WelleUnten_IN3_GPIO_Port, M6_WelleUnten_IN3_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(M7_SchieberUnten_IN1_GPIO_Port, M7_SchieberUnten_IN1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(STEPPER_IN1_GPIO_Port, STEPPER_IN1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(STEPPER_IN2_GPIO_Port, STEPPER_IN2_Pin, GPIO_PIN_RESET);
 /* USER CODE END MX_GPIO_Init_2 */
 }
 

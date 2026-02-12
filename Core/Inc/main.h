@@ -37,6 +37,15 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
+// Globaler Systemzustand für Not-Stopp / Run
+typedef enum {
+    SYSTEM_RUN = 0,
+    SYSTEM_EMERGENCY_STOP
+} SystemState_t;
+
+extern volatile SystemState_t g_SystemState;
+extern volatile uint8_t g_RestartFromTop;
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -54,6 +63,7 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 void delay_us(uint16_t us);
+void Check_Encoder_Button(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
