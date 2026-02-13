@@ -11,6 +11,19 @@ void Menu_Init(void) {
     HAL_TIM_Encoder_Start(&htim8, TIM_CHANNEL_ALL);
 }
 
+// Vollständiger Display-Reset + Re-Initialisierung mit kurzer Statusanzeige
+void Display_Reinit(void) {
+    // Hardware-Reset des ILI9341
+    ILI9341_Reset();
+
+    // Standard-Initialisierung (Rotation + Encoder)
+    Menu_Init();
+
+    // Kurze Rückmeldung auf dem Display
+    ILI9341_Fill_Screen(BLACK);
+    ILI9341_Draw_Text("Display Reset", 40, 100, GREEN, 2, BLACK);
+}
+
 // Helper: Checks if button is pressed (debounced)
 // Returns 1 if pressed, 0 if not
 uint8_t Menu_Is_Button_Pressed(void) {

@@ -73,6 +73,7 @@ static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 void All_Motors_Stop_Immediate(void);
+void Display_Reinit(void);  // aus menu_logic.c
 
 /* USER CODE END PFP */
 
@@ -80,6 +81,8 @@ void All_Motors_Stop_Immediate(void);
 /* USER CODE BEGIN 0 */
 
 // Prüft die Drehgeber-Taste (ENC_SW, aktiv LOW) und schaltet RUN <-> EMERGENCY_STOP
+// Kurz-Druck: Start/Stop wie bisher
+// Lang-Druck (>1s, nur im Stopp-Zustand): Display-Reinit (ILI9341 neu initialisieren)
 void Check_Encoder_Button(void)
 {
   static GPIO_PinState last = GPIO_PIN_SET; // Pull-Up: nicht gedrückt = HIGH
@@ -90,19 +93,30 @@ void Check_Encoder_Button(void)
     HAL_Delay(30); // Entprellen
     now = HAL_GPIO_ReadPin(ENC_SW_GPIO_Port, ENC_SW_Pin);
     if (now == GPIO_PIN_RESET) {
-      if (g_SystemState == SYSTEM_RUN) {
-        // -> echter Not-Stopp
-        g_SystemState = SYSTEM_EMERGENCY_STOP;
-        All_Motors_Stop_Immediate();
-      } else {
-        // -> Neustart von oben
-        g_RestartFromTop = 1;
-        g_SystemState = SYSTEM_RUN;
-      }
+      uint32_t t_start = HAL_GetTick();
 
-      // Warten bis Taste losgelassen ist
+      // Warten bis Taste losgelassen ist und dabei Dauer messen
       while (HAL_GPIO_ReadPin(ENC_SW_GPIO_Port, ENC_SW_Pin) == GPIO_PIN_RESET) {
         HAL_Delay(10);
+      }
+      uint32_t press_time = HAL_GetTick() - t_start;
+
+      // Langer Druck: Display neu initialisieren (nur im Stopp-Zustand sinnvoll)
+      if (press_time > 1000 && g_SystemState == SYSTEM_EMERGENCY_STOP) {
+        Display_Reinit();
+        g_RestartFromTop = 0;
+        // System bleibt im EMERGENCY_STOP, Benutzer kann danach normal starten
+      } else {
+        // Kurzer Druck: normales Start/Stop-Verhalten
+        if (g_SystemState == SYSTEM_RUN) {
+          // -> echter Not-Stopp
+          g_SystemState = SYSTEM_EMERGENCY_STOP;
+          All_Motors_Stop_Immediate();
+        } else {
+          // -> Neustart von oben
+          g_RestartFromTop = 1;
+          g_SystemState = SYSTEM_RUN;
+        }
       }
     }
   }
@@ -171,17 +185,37 @@ int main(void)
   HAL_Delay(150); 
   */
   
-  // 3. Jetzt initialisieren
-  HAL_Delay(50); // Kurz warten
+  // 3. Display-Initialisierung – mit sichtbaren Status-Schritten
+  HAL_Delay(50); // Kurz warten, bis 3V3 stabil ist
+
+  // Schritt 1: Erste Display-Initialisierung
   Menu_Init();
+  Menu_Show_Message("STEP 1", "Display Init 1");
+  HAL_Delay(500);
+
+  // Schritt 2: Warten auf Start-Tastendruck
+  Menu_Show_Message("STEP 2", "Warte auf Start");
+  HAL_Delay(300);
   Menu_Wait_For_Start();
+
+  // Schritt 3: Spieleranzahl waehlen
+  Menu_Show_Message("STEP 3", "Spielerwahl");
+  HAL_Delay(300);
   int spieler = Menu_Select_Player_Count();
   char buf[20];
   sprintf(buf, "%d Spieler", spieler);
   Menu_Show_Message("LOS GEHT'S!", buf);
-  HAL_Delay(2000);
-  // Menu_Show_Message("M1 + Lichtschranke", "Test 60 Sekunden");
-  // HAL_Delay(2000);
+  HAL_Delay(1500);
+
+  // Schritt 4: Zweite, verzoegerte Re-Initialisierung des Displays
+  // (Hilft, wenn die erste Init direkt nach Power-On zu frueh war)
+  Menu_Show_Message("STEP 4", "Display Re-Init");
+  HAL_Delay(500);
+  Menu_Init();  // ILI9341_Init + Rotation + Encoder-Start erneut
+  Menu_Show_Message("BEREIT", "Encoder Start");
+  HAL_Delay(1000);
+
+  // Ab hier uebernimmt die Hauptlogik in der while(1)-Schleife
 #else
   // ===== OHNE DISPLAY: Sensor-Steuerung über PC0 (Lichtschranke 4) =====
   (void)0;
@@ -259,15 +293,29 @@ int main(void)
 #endif
 
       // Phase 1: Sortieren mit Sensor oben
+#if DISPLAY_ENCODER_CONNECTED
+      Menu_Show_Message("Phase 1", "Sortieren...");
+#endif
       Phase1_Sortieren_1Minute();
       if (g_SystemState == SYSTEM_EMERGENCY_STOP) continue;
 
       // Phase 2: Transport mit Sensor in der Mitte
+#if DISPLAY_ENCODER_CONNECTED
+      Menu_Show_Message("Phase 2", "Transport...");
+#endif
       Phase2_Transport_1Minute();
       if (g_SystemState == SYSTEM_EMERGENCY_STOP) continue;
 
       // Phase 3: Auswurf mit Sensor unten
+#if DISPLAY_ENCODER_CONNECTED
+      Menu_Show_Message("Phase 3", "Verteilen...");
+#endif
       Phase3_Auswurf(spieler_local);
+
+#if DISPLAY_ENCODER_CONNECTED
+      // Abschlussanzeige, wenn alle Karten verteilt sind
+      Menu_Show_Message("FERTIG", "Druecke Start neu");
+#endif
       // Phase 3 kann am Ende g_SystemState = SYSTEM_EMERGENCY_STOP setzen,
       // damit auf erneuten Tastendruck gewartet wird.
     }
