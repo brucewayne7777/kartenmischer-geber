@@ -206,7 +206,7 @@ int main(void)
     /* USER CODE BEGIN 3 */
 
 // Alte Hauptlogik beibehalten (Standard aktiv lassen)
-#if 1
+#if 0
 
 #if DISPLAY_ENCODER_CONNECTED
     // ===== MIT DISPLAY: Phasen 1-3 wie bisher =====
@@ -240,7 +240,7 @@ int main(void)
 #endif // Ende alte Hauptlogik
 
 // Neue Hauptlogik: Not-Stopp & Sensorbasierte Phasen (zunächst deaktiviert)
-#if 0
+#if 1
     // 1. Warten, bis System per Drehgeber-Taste gestartet wird
     while (g_SystemState == SYSTEM_EMERGENCY_STOP) {
       Check_Encoder_Button();
