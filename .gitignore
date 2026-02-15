@@ -12,6 +12,7 @@ Release/
 # IDE metadata cache
 .settings/
 .metadata/
+.cursor/plans/
 *.log
 
 # Launch/debug configs
@@ -20,3 +21,6 @@ Release/
 # Other temporary files
 *.tmp
 *.bak
+
+# Bericht folder
+bericht/
