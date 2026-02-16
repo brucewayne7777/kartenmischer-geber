@@ -42,13 +42,31 @@ Die Phasen werden sensorgestützt (Lichtschranken) und über den Systemzustand `
   - STM32CubeIDE (Version passend zum Projekt, z.B. ≥ 1.15)
 
 - **Hardware**
-  - STM32F3‑Nucleo oder eigenes STM32F3‑Board mit den im Projekt verwendeten Pins (siehe `main.h` / `.ioc`).
-  - ILI9341‑SPI‑Display (Pins: `LCD_CS`, `LCD_DC`, `LCD_RST`, SPI1‑Signale).
-  - Drehencoder mit Taster:
-    - A/B‑Signale am Timer `TIM8` (Encoder‑Mode)
-    - Taster `ENC_SW` an einem GPIO‑Eingang mit Pull‑Up.
-  - Lichtschranken an den definierten Eingängen (`Lichtschranke_1/2/3/4_*`).
-  - Motor‑Treiber (z.B. L298N + DRV8825) wie im Projekt verdrahtet.
+  - **Mikrocontroller‑Board**: ST **NUCLEO‑F303RE** (U1)  
+    - ST‑Microcontroller STM32F303, Arduino‑kompatible Header.
+  - **Schrittmotor‑Treiber**: **Pololu Breakout DRV8825** (A1)  
+    - Steckmodul `Pololu_Breakout_DRV8825`, Footprint `Module:Pololu_Breakout-16_15.2x20.3mm`, Datasheet: `https://www.pololu.com/product/2982`  
+    - Versorgt den bipolaren 4‑Draht‑Schrittmotor M8 über Schraubklemmen J1/J2.
+  - **Schrittmotor**: 4‑adriger bipolarer Schrittmotor (M8)  
+    - Typisch NEMA‑17, im Schaltplan als `Stepper_Motor_bipolar` geführt.
+  - **DC‑Motor‑Anschlüsse**:  
+    - Steckleisten `M1/2_Connect1`, `M3/4_Connect2`, `M5/6_Connect1`, `M7/8_Connect1` (jeweils `Conn_01x04`) für die H‑Brücken‑Kanäle der DC‑Motoren M1–M7.  
+    - Zugehörige Versorgungs‑/GND‑Stecker `M1/2_Power_GND1`, `M3/4_Power_GND1`, `M5/6_Power_GND1`, `M7/8_Power_GND1` (jeweils `Conn_01x02`) für **+12 V** und Masse.
+  - **Versorgung**:  
+    - Eingang **+12 V** an den Power‑Klemmen (`M*_Power_GND1`), entkoppelt über einen **polarisierten Elektrolytkondensator C1** (Footprint `CP_Radial_D5.0mm_P2.50mm`).  
+    - Das Nucleo‑Board erhält die Versorgung über `VIN_S1` / `+5V` / `+3V3`‑Pins; Logik‑Ebene ist **3,3 V**.
+  - **Drehencoder‑Modul**: **KY‑040** oder kompatibel  
+    - Im Schaltplan als `KY_040` (Conn_01x05, PinHeader 1x05, 2,54 mm).  
+    - Pins: `+3V3`, `GND`, `CLK`, `DT`, `SW` sind mit den NUCLEO‑Pins `PC6`, `PC7`, `PC2` und Pull‑Ups verbunden (siehe Netze `Net-(KY_040-*)`).
+  - **Display‑Modul**: **TFT 320x240 (ILI9341‑kompatibel)**  
+    - Symbol `TFT_320x240` (U10), Footprint `z_Devices:TFT-320x240`.  
+    - SPI‑Signale: `CS` (PA4), `RST` (PA0), `DC` (PA1), `MOSI` (PA7), `SCK` (PA5), `VCC`/`LED` an **+3V3**, `GND` an Masse.
+  - **Lichtschranken / Sensorik**: **4× CNY70** Reflex‑Lichttaster (U2, U7, U8, U9)  
+    - Footprint `OptoDevice:Vishay_CNY70`, Datasheet: `https://www.vishay.com/docs/83751/cny70.pdf`.  
+    - Jeweils mit **10 kΩ Pull‑Up‑Widerständen** (`pullup_R1`–`pullup_R4`) an **+3V3**, die Transistorausgänge sind mit den NUCLEO‑Pins `PA10`, `PC4`, `PA6`, `PC0` verbunden (Lichtschranken 1–4).
+    - LED‑Vorwiderstände: `R1`–`R4` mit **1 kΩ** von **+12 V** auf die LED‑Anschlüsse `A` der CNY70‑Sensoren.
+  - **Sonstiges**:  
+    - Mehrere Stiftleisten (`Connector_PinHeader_2.54mm`) und Schraubklemmen (`TerminalBlock_Phoenix_MKDS-1,5-2`) zur Verbindung von Motoren, Versorgung und Schrittmotor.
 
 ---
 
