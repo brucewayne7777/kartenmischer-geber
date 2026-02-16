@@ -176,6 +176,13 @@ int main(void)
   HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_SET);
   HAL_Delay(100); // Warten bis Spannung stabil
 
+  // ---- FORCE DISPLAY RESET (MANDATORY) ----
+  // Harte, garantierte Reset-Flanke, nachdem GPIO/SPI stabil sind
+  HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_RESET);
+  HAL_Delay(200);          // langer Reset, VIN-sicher
+  HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_SET);
+  HAL_Delay(200);          // ILI9341 internen Start abwarten
+
 #if DISPLAY_ENCODER_CONNECTED
   // 2. Harter Reset Puls - wird jetzt von ILI9341_Init gemacht
   /*
