@@ -330,7 +330,7 @@ void Phase2_Transport_1Minute(void)
 }
 #endif
 
-// Neue, sensorbasierte Logik (Lichtschranke 3) – aktiviert
+// Neue, sensorbasierte Logik (Lichtschranke 2 + 4, PC4/PC0) – aktiviert
 #if 1
 void Phase2_Transport_1Minute(void)
 {
@@ -347,8 +347,9 @@ void Phase2_Transport_1Minute(void)
     HAL_GPIO_WritePin(M3_WelleRechts_IN1_GPIO_Port, M3_WelleRechts_IN1_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(M3_WelleRechts_IN2_GPIO_Port, M3_WelleRechts_IN2_Pin, GPIO_PIN_RESET);
 
-    // Solange in der Mitte Karten erkannt werden (Lichtschranke 3)
-    while (Lichtschranke_Is_Card_Detected(3)) {
+    // Solange in den Trichtern Karten erkannt werden (Sensor 2 = PC4, Sensor 4 = PC0).
+    // Phase 3 darf erst starten, wenn BEIDE Sensoren keine Karte mehr sehen.
+    while (Lichtschranke_Is_Card_Detected(2) || Lichtschranke_Is_Card_Detected(4)) {
         Check_Encoder_Button();
         if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
             All_Motors_Stop_Immediate();
@@ -441,7 +442,7 @@ void Phase3_Auswurf(int spieler_anzahl)
 }
 #endif
 
-// Neue, sensorbasierte Logik (Lichtschranke 4) – aktiviert
+// Neue, sensorbasierte Logik (Lichtschranke 3, PA6 unten) – aktiviert
 #if 1
 void Phase3_Auswurf(int spieler_anzahl)
 {
@@ -453,8 +454,8 @@ void Phase3_Auswurf(int spieler_anzahl)
 
     static int direction = 1; // 1 = vorwärts, 0 = rückwärts (Snake)
 
-    // Solange unten Karten erkannt werden (Lichtschranke 4)
-    while (Lichtschranke_Is_Card_Detected(4)) {
+    // Solange unten Karten erkannt werden (Lichtschranke 3 = PA6, ganz unten)
+    while (Lichtschranke_Is_Card_Detected(3)) {
 
         if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
             All_Motors_Stop_Immediate();
@@ -465,7 +466,7 @@ void Phase3_Auswurf(int spieler_anzahl)
         HAL_GPIO_WritePin(M6_WelleUnten_IN3_GPIO_Port, M6_WelleUnten_IN3_Pin, GPIO_PIN_SET);
         HAL_Delay(2000); // Vorlauf
 
-        for (int i = 0; i < spieler_anzahl && Lichtschranke_Is_Card_Detected(4); i++) {
+        for (int i = 0; i < spieler_anzahl && Lichtschranke_Is_Card_Detected(3); i++) {
             Check_Encoder_Button();
             if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
                 All_Motors_Stop_Immediate();
@@ -480,7 +481,7 @@ void Phase3_Auswurf(int spieler_anzahl)
             HAL_Delay(1000);
 
             // Zur nächsten Spielerposition drehen (außer beim letzten)
-            if (i < spieler_anzahl - 1 && Lichtschranke_Is_Card_Detected(4)) {
+            if (i < spieler_anzahl - 1 && Lichtschranke_Is_Card_Detected(3)) {
                 M8_Rotate(steps_per_segment, speed_delay, direction);
                 HAL_Delay(500);
             }
