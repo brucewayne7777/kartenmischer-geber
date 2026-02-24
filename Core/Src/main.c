@@ -176,24 +176,8 @@ int main(void)
   HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_SET);
   HAL_Delay(100); // Warten bis Spannung stabil
 
-  // ---- FORCE DISPLAY RESET (MANDATORY) ----
-  // Harte, garantierte Reset-Flanke, nachdem GPIO/SPI stabil sind
-  HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_RESET);
-  HAL_Delay(200);          // langer Reset, VIN-sicher
-  HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_SET);
-  HAL_Delay(200);          // ILI9341 internen Start abwarten
-
 #if DISPLAY_ENCODER_CONNECTED
-  // 2. Harter Reset Puls - wird jetzt von ILI9341_Init gemacht
-  /*
-  HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_RESET);
-  HAL_Delay(100); 
-  HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_SET);
-  HAL_Delay(150); 
-  */
-  
-  // 3. Display-Initialisierung – mit sichtbaren Status-Schritten
-  HAL_Delay(50); // Kurz warten, bis 3V3 stabil ist
+  HAL_Delay(50);
 
   // Schritt 1: Erste Display-Initialisierung
   Menu_Init();
@@ -214,11 +198,7 @@ int main(void)
   Menu_Show_Message("LOS GEHT'S!", buf);
   HAL_Delay(1500);
 
-  // Schritt 4: Zweite, verzoegerte Re-Initialisierung des Displays
-  // (Hilft, wenn die erste Init direkt nach Power-On zu frueh war)
-  Menu_Show_Message("STEP 4", "Display Re-Init");
-  HAL_Delay(500);
-  Menu_Init();  // ILI9341_Init + Rotation + Encoder-Start erneut
+  ILI9341_Fill_Screen(BLACK);
   Menu_Show_Message("BEREIT", "Encoder Start");
   HAL_Delay(1000);
 
@@ -402,7 +382,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8; // ~9 MHz (Schneller, aber sicher)
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16; // ~4.5 MHz (stabiler bei Jumper-Wires)
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
