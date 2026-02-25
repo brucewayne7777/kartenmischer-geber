@@ -115,8 +115,8 @@ void Phase1_Sortieren_1Minute(void)
     HAL_GPIO_WritePin(M3_WelleRechts_IN1_GPIO_Port, M3_WelleRechts_IN1_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(M3_WelleRechts_IN2_GPIO_Port, M3_WelleRechts_IN2_Pin, GPIO_PIN_SET);
 
-    // 2. Warte 10 Sekunden (nur M2/M3 laufen)
-    HAL_Delay(10000); 
+    // 2. Warte 5 Sekunden (nur M2/M3 laufen)
+    HAL_Delay(5000);
 
     // 3. M1 startet (Rechts/Links Zyklus) für den Rest der Minute (50 Sek)
     
@@ -167,8 +167,8 @@ void Phase1_Sortieren_1Minute(void)
 
     uint32_t t0 = HAL_GetTick();
 
-    // 10 s: nur M2/M3 laufen, abbrechen, wenn oben keine Karte mehr
-    while ((HAL_GetTick() - t0) < 10000 && Lichtschranke_Is_Card_Detected(1)) {
+    // 5 s: nur M2/M3 laufen, abbrechen, wenn oben keine Karte mehr
+    while ((HAL_GetTick() - t0) < 5000 && Lichtschranke_Is_Card_Detected(1)) {
         Check_Encoder_Button();
         if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
             All_Motors_Stop_Immediate();
@@ -204,7 +204,7 @@ void Phase1_Sortieren_1Minute(void)
         // Pause
         HAL_GPIO_WritePin(M1_SchieberOben_IN1_M1_DIR_GPIO_Port, M1_SchieberOben_IN1_M1_DIR_Pin, GPIO_PIN_RESET);
         HAL_GPIO_WritePin(M1_SchieberOben_IN2_M1_DIR_GPIO_Port, M1_SchieberOben_IN2_M1_DIR_Pin, GPIO_PIN_RESET);
-        HAL_Delay(1500);
+        HAL_Delay(500);
     }
 
     // M1 sicher stoppen (keine Karte mehr oben -> Phase 1 beendet)

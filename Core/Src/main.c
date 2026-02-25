@@ -170,16 +170,18 @@ int main(void)
   HAL_TIM_Base_Start(&htim1); // Start Timer for delay_us
 
   // --- SICHERER START ---
-  // 1. Zuerst alles auf HIGH
   HAL_GPIO_WritePin(LCD_CS_GPIO_Port, LCD_CS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(LCD_DC_GPIO_Port, LCD_DC_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_SET);
-  HAL_Delay(100); // Warten bis Spannung stabil
+  HAL_Delay(100);
 
 #if DISPLAY_ENCODER_CONNECTED
+  // Harter Display-Reset vor Init, damit ILI9341 aus jedem Zustand sauber startet
+  HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_RESET);
   HAL_Delay(50);
+  HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_SET);
+  HAL_Delay(150);
 
-  // Schritt 1: Erste Display-Initialisierung
   Menu_Init();
   Menu_Show_Message("STEP 1", "Display Init 1");
   HAL_Delay(500);

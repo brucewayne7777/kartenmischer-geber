@@ -272,7 +272,7 @@ void ILI9341_Draw_Colour(uint16_t Colour)
     unsigned char TempBuffer[2] = {Colour>>8, Colour};
     HAL_GPIO_WritePin(LCD_DC_PORT, LCD_DC_PIN, GPIO_PIN_SET);
     HAL_GPIO_WritePin(LCD_CS_PORT, LCD_CS_PIN, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(HSPI_INSTANCE, TempBuffer, 2, 1);
+    HAL_SPI_Transmit(HSPI_INSTANCE, TempBuffer, 2, 10);
     HAL_GPIO_WritePin(LCD_CS_PORT, LCD_CS_PIN, GPIO_PIN_SET);
 }
 
