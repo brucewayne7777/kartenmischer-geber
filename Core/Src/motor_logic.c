@@ -32,10 +32,7 @@ void M8_Rotate(int steps, int delay_ms, int direction)
     HAL_Delay(1);
 
     // Ziel-Verzögerung in us (Aufrufer geben weiter ms an)
-    int delay_us_target = delay_ms * 1000;
-    if (delay_us_target <= 0) {
-        return;
-    }
+    uint32_t delay_us_target = (uint32_t)delay_ms * 1000U;
 
     // Rampenlänge: ca. 1/3 der Gesamtschritte, sanfter und länger
     int ramp_len = steps / 3;
@@ -45,39 +42,45 @@ void M8_Rotate(int steps, int delay_ms, int direction)
         ramp_len = 120;
     }
 
-    // Start deutlich langsamer als Ziel, für mehr Anlaufmoment
-    int start_delay = delay_us_target * 8;
-    if (start_delay > 100000) {
-        start_delay = 100000;
+    // Start langsamer als Ziel, für mehr Anlaufmoment (max. 40ms)
+    uint32_t start_delay = delay_us_target * 4U;
+    if (start_delay > 40000U) {
+        start_delay = 40000U;
     }
 
-    int accel_step = (start_delay - delay_us_target) / ramp_len;
-    if (accel_step < 1) {
-        accel_step = 1;
+    uint32_t accel_step = (start_delay - delay_us_target) / (uint32_t)ramp_len;
+    if (accel_step < 1U) {
+        accel_step = 1U;
     }
 
     for (int i = 0; i < steps; i++) {
-        // Not-Stopp und Encoder-Taste während der Bewegung berücksichtigen
-        Check_Encoder_Button();
-        if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
-            All_Motors_Stop_Immediate();
-            return;
+        // Not-Stopp und Encoder-Taste während der Bewegung berücksichtigen,
+        // aber nicht bei jedem Einzelschritt (sonst Jitter durch HAL_Delay).
+        if ((i % 20) == 0) {
+            Check_Encoder_Button();
+            if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
+                All_Motors_Stop_Immediate();
+                return;
+            }
         }
 
-        // STEP-Puls
+        // STEP-Puls (DRV8825 braucht nur ~2µs High)
         HAL_GPIO_WritePin(STEPPER_IN2_GPIO_Port, STEPPER_IN2_Pin, GPIO_PIN_SET);
-        delay_us(50);
+        delay_us(10U);
         HAL_GPIO_WritePin(STEPPER_IN2_GPIO_Port, STEPPER_IN2_Pin, GPIO_PIN_RESET);
 
         // Trapezprofil
-        int current_delay;
+        uint32_t current_delay;
         if (i < ramp_len) {
             // Beschleunigungsphase
-            current_delay = start_delay - (accel_step * i);
+            current_delay = start_delay - (accel_step * (uint32_t)i);
         } else if (i >= steps - ramp_len) {
             // Bremsphase
             int steps_left = steps - 1 - i;
-            current_delay = start_delay - (accel_step * steps_left);
+            if (steps_left < 0) {
+                steps_left = 0;
+            }
+            current_delay = start_delay - (accel_step * (uint32_t)steps_left);
         } else {
             // Konstantfahrt
             current_delay = delay_us_target;
@@ -86,11 +89,11 @@ void M8_Rotate(int steps, int delay_ms, int direction)
         if (current_delay < delay_us_target) {
             current_delay = delay_us_target;
         }
-        if (current_delay > 60000) {
-            current_delay = 60000;
+        if (current_delay > 40000U) {
+            current_delay = 40000U;
         }
 
-        delay_us((uint16_t)current_delay);
+        delay_us(current_delay);
     }
 }
 

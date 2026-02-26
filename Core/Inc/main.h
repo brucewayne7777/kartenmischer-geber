@@ -62,7 +62,7 @@ extern volatile uint8_t g_RestartFromTop;
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-void delay_us(uint16_t us);
+void delay_us(uint32_t us);
 void Check_Encoder_Button(void);
 /* USER CODE END EFP */
 

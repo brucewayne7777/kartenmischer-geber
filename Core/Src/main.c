@@ -589,11 +589,18 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-// Microsecond Delay Function
-void delay_us(uint16_t us)
+// Microsecond Delay Function (supports >65ms via chunking)
+void delay_us(uint32_t us)
 {
-    __HAL_TIM_SET_COUNTER(&htim1, 0);  // Reset counter to 0
-    while (__HAL_TIM_GET_COUNTER(&htim1) < us); // Wait
+    // Handle long delays in 60000µs chunks to avoid 16-bit timer overflow
+    while (us > 60000U) {
+        __HAL_TIM_SET_COUNTER(&htim1, 0);
+        while (__HAL_TIM_GET_COUNTER(&htim1) < 60000U);
+        us -= 60000U;
+    }
+
+    __HAL_TIM_SET_COUNTER(&htim1, 0);
+    while (__HAL_TIM_GET_COUNTER(&htim1) < us);
 }
 /* USER CODE END 4 */
 
