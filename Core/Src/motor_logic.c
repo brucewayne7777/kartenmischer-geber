@@ -9,10 +9,93 @@
 // HILFSFUNKTIONEN
 // ============================================================
 
+// Umschalter für Stepper-Implementierung: aktuell nur neue Variante aktiv
+
 // Stepper M8 (NEMA 17 mit DRV8825 Treiber)
 // STEPPER_IN1 (PB7) -> DIR
 // STEPPER_IN2 (PB8) -> STEP
 
+void M8_Rotate(int steps, int delay_ms, int direction)
+{
+    if (steps <= 0 || delay_ms <= 0) {
+        return;
+    }
+
+    // Richtung setzen
+    if (direction == 1) {
+        HAL_GPIO_WritePin(STEPPER_IN1_GPIO_Port, STEPPER_IN1_Pin, GPIO_PIN_SET);
+    } else {
+        HAL_GPIO_WritePin(STEPPER_IN1_GPIO_Port, STEPPER_IN1_Pin, GPIO_PIN_RESET);
+    }
+
+    // Setup-Zeit für DIR-Signal
+    HAL_Delay(1);
+
+    // Ziel-Verzögerung in us (Aufrufer geben weiter ms an)
+    int delay_us_target = delay_ms * 1000;
+    if (delay_us_target <= 0) {
+        return;
+    }
+
+    // Rampenlänge: ca. 1/3 der Gesamtschritte, sanfter und länger
+    int ramp_len = steps / 3;
+    if (ramp_len < 5) {
+        ramp_len = 5;
+    } else if (ramp_len > 120) {
+        ramp_len = 120;
+    }
+
+    // Start deutlich langsamer als Ziel, für mehr Anlaufmoment
+    int start_delay = delay_us_target * 8;
+    if (start_delay > 100000) {
+        start_delay = 100000;
+    }
+
+    int accel_step = (start_delay - delay_us_target) / ramp_len;
+    if (accel_step < 1) {
+        accel_step = 1;
+    }
+
+    for (int i = 0; i < steps; i++) {
+        // Not-Stopp und Encoder-Taste während der Bewegung berücksichtigen
+        Check_Encoder_Button();
+        if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
+            All_Motors_Stop_Immediate();
+            return;
+        }
+
+        // STEP-Puls
+        HAL_GPIO_WritePin(STEPPER_IN2_GPIO_Port, STEPPER_IN2_Pin, GPIO_PIN_SET);
+        delay_us(50);
+        HAL_GPIO_WritePin(STEPPER_IN2_GPIO_Port, STEPPER_IN2_Pin, GPIO_PIN_RESET);
+
+        // Trapezprofil
+        int current_delay;
+        if (i < ramp_len) {
+            // Beschleunigungsphase
+            current_delay = start_delay - (accel_step * i);
+        } else if (i >= steps - ramp_len) {
+            // Bremsphase
+            int steps_left = steps - 1 - i;
+            current_delay = start_delay - (accel_step * steps_left);
+        } else {
+            // Konstantfahrt
+            current_delay = delay_us_target;
+        }
+
+        if (current_delay < delay_us_target) {
+            current_delay = delay_us_target;
+        }
+        if (current_delay > 60000) {
+            current_delay = 60000;
+        }
+
+        delay_us((uint16_t)current_delay);
+    }
+}
+
+// Alte Implementierung von M8_Rotate (zurückkopierbar, falls die neue Rampen-Logik Probleme macht)
+/*
 void M8_Rotate(int steps, int delay_ms, int direction) {
     // 1. Set Direction
     // direction: 1 = Forward (SET), 0 = Reverse (RESET)
@@ -47,6 +130,7 @@ void M8_Rotate(int steps, int delay_ms, int direction) {
         HAL_Delay(current_delay); 
     }
 }
+*/
 
 // ============================================================
 // GLOBALER MOTOR-STOPP
