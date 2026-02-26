@@ -273,12 +273,10 @@ int main(void)
     if (g_RestartFromTop) {
       g_RestartFromTop = 0;
 
-      int spieler_local = 4; // Default ohne Display
-
 #if DISPLAY_ENCODER_CONNECTED
-      // Wenn Display wieder zuverlässig funktioniert, kann hier
-      // wieder die Auswahl per Drehgeber aktiviert werden:
-      // spieler_local = Menu_Select_Player_Count();
+      int spieler_local = spieler;  // Spieleranzahl aus dem Menü übernehmen
+#else
+      int spieler_local = 4;        // Default ohne Display
 #endif
 
       // Phase 1: Sortieren mit Sensor oben
