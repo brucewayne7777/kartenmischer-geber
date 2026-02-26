@@ -196,7 +196,7 @@ void Phase1_Sortieren_1Minute(void)
         // M1 rückwärts
         HAL_GPIO_WritePin(M1_SchieberOben_IN1_M1_DIR_GPIO_Port, M1_SchieberOben_IN1_M1_DIR_Pin, GPIO_PIN_RESET);
         HAL_GPIO_WritePin(M1_SchieberOben_IN2_M1_DIR_GPIO_Port, M1_SchieberOben_IN2_M1_DIR_Pin, GPIO_PIN_SET);
-        HAL_Delay(1800);
+        HAL_Delay(900);
 
         // Prüfen, ob noch Karte oben
         if (!Lichtschranke_Is_Card_Detected(1)) break;
@@ -490,7 +490,14 @@ void Phase3_Auswurf(int spieler_anzahl)
         // Richtung für nächste Runde umdrehen (Snake)
         direction = !direction;
 
-        // Feeder aus zwischen Runden
+        // Nachlauf: M6 laeuft noch 2s, damit letzte Karte vom Band kommt
+        HAL_Delay(3000);
+//        // M7 nochmal auswerfen, falls Karte noch im Schieber haengt
+//        HAL_GPIO_WritePin(M7_SchieberUnten_IN1_GPIO_Port, M7_SchieberUnten_IN1_Pin, GPIO_PIN_SET);
+//        HAL_Delay(HALF_TURN_TIME_MS);
+//        HAL_GPIO_WritePin(M7_SchieberUnten_IN1_GPIO_Port, M7_SchieberUnten_IN1_Pin, GPIO_PIN_RESET);
+
+        // Jetzt Feeder aus
         HAL_GPIO_WritePin(M6_WelleUnten_IN3_GPIO_Port, M6_WelleUnten_IN3_Pin, GPIO_PIN_RESET);
         HAL_Delay(1000);
     }
