@@ -298,6 +298,9 @@ void Phase1_Sortieren_1Minute(void)
     HAL_GPIO_WritePin(M1_SchieberOben_IN1_M1_DIR_GPIO_Port, M1_SchieberOben_IN1_M1_DIR_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(M1_SchieberOben_IN2_M1_DIR_GPIO_Port, M1_SchieberOben_IN2_M1_DIR_Pin, GPIO_PIN_RESET);
 
+    //1 Sekunde warten bevor M2/M3 Richtung wechseln ---
+    HAL_Delay(1000);
+
     // --- 3. M2/M3 kurz in Gegenrichtung laufen lassen ---
     HAL_GPIO_WritePin(M2_WelleLinks_IN3_GPIO_Port, M2_WelleLinks_IN3_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(M2_WelleLinks_IN4_GPIO_Port, M2_WelleLinks_IN4_Pin, GPIO_PIN_RESET);
@@ -312,7 +315,7 @@ void Phase1_Sortieren_1Minute(void)
     HAL_GPIO_WritePin(M3_WelleRechts_IN2_GPIO_Port, M3_WelleRechts_IN2_Pin, GPIO_PIN_RESET);
 
     uint32_t t_rev = HAL_GetTick();
-    while ((HAL_GetTick() - t_rev) < 15000) {
+    while ((HAL_GetTick() - t_rev) < 5000) {
         Check_Encoder_Button();
         if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
             All_Motors_Stop_Immediate();
