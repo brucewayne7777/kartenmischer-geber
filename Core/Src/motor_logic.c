@@ -275,7 +275,7 @@ void Phase1_Sortieren_1Minute(void)
         // M1 vorwärts
         HAL_GPIO_WritePin(M1_SchieberOben_IN1_M1_DIR_GPIO_Port, M1_SchieberOben_IN1_M1_DIR_Pin, GPIO_PIN_SET);
         HAL_GPIO_WritePin(M1_SchieberOben_IN2_M1_DIR_GPIO_Port, M1_SchieberOben_IN2_M1_DIR_Pin, GPIO_PIN_RESET);
-        HAL_Delay(900);
+        HAL_Delay(700);
 
         // Prüfen, ob noch Karte oben (kann während Bewegung verschwinden)
         if (!Lichtschranke_Is_Card_Detected(1)) break;
@@ -283,7 +283,7 @@ void Phase1_Sortieren_1Minute(void)
         // M1 rückwärts
         HAL_GPIO_WritePin(M1_SchieberOben_IN1_M1_DIR_GPIO_Port, M1_SchieberOben_IN1_M1_DIR_Pin, GPIO_PIN_RESET);
         HAL_GPIO_WritePin(M1_SchieberOben_IN2_M1_DIR_GPIO_Port, M1_SchieberOben_IN2_M1_DIR_Pin, GPIO_PIN_SET);
-        HAL_Delay(900);
+        HAL_Delay(1400);
 
         // Prüfen, ob noch Karte oben
         if (!Lichtschranke_Is_Card_Detected(1)) break;
@@ -426,9 +426,9 @@ void Phase2_Transport_1Minute(void)
 {
     if (g_SystemState != SYSTEM_RUN) return;
 
-    // M4/M5 starten (Schieber zur Mitte)
-    HAL_GPIO_WritePin(M4_SchieberLinks_IN3_GPIO_Port, M4_SchieberLinks_IN3_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(M5_SchieberRechts_IN1_GPIO_Port, M5_SchieberRechts_IN1_Pin, GPIO_PIN_SET);
+    // M4/M5 initial ausschalten
+    HAL_GPIO_WritePin(M4_SchieberLinks_IN3_GPIO_Port, M4_SchieberLinks_IN3_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(M5_SchieberRechts_IN1_GPIO_Port, M5_SchieberRechts_IN1_Pin, GPIO_PIN_RESET);
 
     // M2/M3 in Gegenrichtung zu Phase 1
     HAL_GPIO_WritePin(M2_WelleLinks_IN3_GPIO_Port, M2_WelleLinks_IN3_Pin, GPIO_PIN_SET);
@@ -437,8 +437,28 @@ void Phase2_Transport_1Minute(void)
     HAL_GPIO_WritePin(M3_WelleRechts_IN1_GPIO_Port, M3_WelleRechts_IN1_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(M3_WelleRechts_IN2_GPIO_Port, M3_WelleRechts_IN2_Pin, GPIO_PIN_RESET);
 
-    // Solange in den Trichtern Karten erkannt werden (Sensor 2 = PC4, Sensor 4 = PC0).
-    // Phase 3 darf erst starten, wenn BEIDE Sensoren keine Karte mehr sehen.
+    // Zuerst nur M4 für ca. 3 Sekunden laufen lassen (vor dem normalen M4/M5-Takt)
+    if (Lichtschranke_Is_Card_Detected(2) || Lichtschranke_Is_Card_Detected(4)) {
+        HAL_GPIO_WritePin(M4_SchieberLinks_IN3_GPIO_Port, M4_SchieberLinks_IN3_Pin, GPIO_PIN_SET);
+
+        uint32_t t_start = HAL_GetTick();
+        while ((HAL_GetTick() - t_start) < 1000) { // ca. 1 s
+            Check_Encoder_Button();
+            if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
+                All_Motors_Stop_Immediate();
+                return;
+            }
+            // Wenn beide Trichter schon leer sind, vorzeitig abbrechen
+            if (!Lichtschranke_Is_Card_Detected(2) && !Lichtschranke_Is_Card_Detected(4)) {
+                break;
+            }
+            HAL_Delay(50);
+        }
+
+        HAL_GPIO_WritePin(M4_SchieberLinks_IN3_GPIO_Port, M4_SchieberLinks_IN3_Pin, GPIO_PIN_RESET);
+    }
+
+    // Danach: wie bisher M4/M5 im Wechsel takten, solange Karten in den Trichtern sind
     while (Lichtschranke_Is_Card_Detected(2) || Lichtschranke_Is_Card_Detected(4)) {
         Check_Encoder_Button();
         if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
@@ -459,7 +479,7 @@ void Phase2_Transport_1Minute(void)
         HAL_Delay(PAUSE_BETWEEN_MS);
     }
 
-    // Keine Karten mehr in der Mitte -> alles stoppen
+    // Keine Karten mehr in der Mitte/den Trichtern -> alles stoppen
     HAL_GPIO_WritePin(M2_WelleLinks_IN3_GPIO_Port, M2_WelleLinks_IN3_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(M2_WelleLinks_IN4_GPIO_Port, M2_WelleLinks_IN4_Pin, GPIO_PIN_RESET);
 
