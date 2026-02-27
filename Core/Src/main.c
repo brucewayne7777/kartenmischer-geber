@@ -191,13 +191,32 @@ int main(void)
   HAL_Delay(300);
   Menu_Wait_For_Start();
 
-  // Schritt 3: Spieleranzahl waehlen
-  Menu_Show_Message("STEP 3", "Spielerwahl");
+  // Schritt 3 ff.: Erstkonfiguration (Modus, Spieler, Karten)
+  Menu_Show_Message("STEP 3", "Moduswahl");
   HAL_Delay(300);
-  int spieler = Menu_Select_Player_Count();
-  char buf[20];
-  sprintf(buf, "%d Spieler", spieler);
-  Menu_Show_Message("LOS GEHT'S!", buf);
+
+  int modus = Menu_Select_Modus(); // 0 = Alle Karten, 1 = X Karten, 2 = Flush
+  int spieler = 0;
+  if (modus == 0 || modus == 1) {
+    Menu_Show_Message("STEP 4", "Spielerwahl");
+    HAL_Delay(300);
+    spieler = Menu_Select_Player_Count();
+  }
+
+  int karten_pro_spieler = 99;     // 99 = Alle Karten
+  if (modus == 1) {
+      karten_pro_spieler = Menu_Select_Karten_Count();
+  }
+
+  Menu_Show_Confirmation(spieler, modus, karten_pro_spieler);
+
+  if (modus == 0 || modus == 1) {
+    char buf[20];
+    sprintf(buf, "%d Spieler", spieler);
+    Menu_Show_Message("LOS GEHT'S!", buf);
+  } else {
+    Menu_Show_Message("LOS GEHT'S!", "Flush Modus");
+  }
   HAL_Delay(1500);
 
   ILI9341_Fill_Screen(BLACK);
@@ -274,7 +293,35 @@ int main(void)
       g_RestartFromTop = 0;
 
 #if DISPLAY_ENCODER_CONNECTED
-      int spieler_local = spieler;  // Spieleranzahl aus dem Menü übernehmen
+      static uint8_t s_first_run_done = 0;
+
+      // Ab dem zweiten Durchlauf nachfragen, ob gleicher Modus oder neue Konfiguration
+      if (s_first_run_done) {
+        int reuse = Menu_Ask_Repeat_Mode(modus, spieler, karten_pro_spieler);
+        if (!reuse) {
+          // Neue Konfiguration von vorne
+          Menu_Show_Message("STEP 3", "Moduswahl");
+          HAL_Delay(300);
+          modus = Menu_Select_Modus();
+
+          spieler = 0;
+          if (modus == 0 || modus == 1) {
+            Menu_Show_Message("STEP 4", "Spielerwahl");
+            HAL_Delay(300);
+            spieler = Menu_Select_Player_Count();
+          }
+
+          karten_pro_spieler = 99;
+          if (modus == 1) {
+            karten_pro_spieler = Menu_Select_Karten_Count();
+          }
+
+          Menu_Show_Confirmation(spieler, modus, karten_pro_spieler);
+        }
+      }
+      s_first_run_done = 1;
+
+      int spieler_local = spieler;  // Spieleranzahl aus dem (ggf. neuen) Menü übernehmen
 #else
       int spieler_local = 4;        // Default ohne Display
 #endif
@@ -293,14 +340,22 @@ int main(void)
       Phase2_Transport_1Minute();
       if (g_SystemState == SYSTEM_EMERGENCY_STOP) continue;
 
-      // Phase 3: Auswurf mit Sensor unten
+      // Phase 3: je nach gewähltem Modus
 #if DISPLAY_ENCODER_CONNECTED
-      Menu_Show_Message("Phase 3", "Verteilen...");
+      if (modus == 2) {
+        Menu_Show_Message("Phase 3", "Flush...");
+        Phase3_Flush();
+      } else {
+        Menu_Show_Message("Phase 3", "Verteilen...");
+        Phase3_Auswurf(spieler_local, karten_pro_spieler);
+      }
+#else
+      // Ohne Display: immer alle Karten verteilen (99 = Alle)
+      Phase3_Auswurf(spieler_local, 99);
 #endif
-      Phase3_Auswurf(spieler_local);
 
 #if DISPLAY_ENCODER_CONNECTED
-      // Abschlussanzeige, wenn alle Karten verteilt sind
+      // Abschlussanzeige, wenn alle Karten verteilt sind bzw. Kartenlimit erreicht
       Menu_Show_Message("FERTIG", "Druecke Start neu");
 #endif
       // Phase 3 kann am Ende g_SystemState = SYSTEM_EMERGENCY_STOP setzen,

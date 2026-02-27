@@ -534,18 +534,21 @@ void Phase3_Auswurf(int spieler_anzahl)
 
 // Neue, sensorbasierte Logik (Lichtschranke 3, PA6 unten) – aktiviert
 #if 1
-void Phase3_Auswurf(int spieler_anzahl)
+void Phase3_Auswurf(int spieler_anzahl, int karten_pro_spieler)
 {
     if (spieler_anzahl < 2) spieler_anzahl = 2;
+    if (karten_pro_spieler < 1) karten_pro_spieler = 99;
     
     int total_steps_per_rev = 600; 
     int steps_per_segment = total_steps_per_rev / spieler_anzahl;
     int speed_delay = 12;
 
     static int direction = 1; // 1 = vorwärts, 0 = rückwärts (Snake)
+    int runden_done = 0;
 
     // Solange unten Karten erkannt werden (Lichtschranke 3 = PA6, ganz unten)
-    while (Lichtschranke_Is_Card_Detected(3)) {
+    // und die gewünschte Anzahl Runden (Karten pro Spieler) noch nicht erreicht
+    while (Lichtschranke_Is_Card_Detected(3) && runden_done < karten_pro_spieler) {
 
         if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
             All_Motors_Stop_Immediate();
@@ -579,6 +582,7 @@ void Phase3_Auswurf(int spieler_anzahl)
 
         // Richtung für nächste Runde umdrehen (Snake)
         direction = !direction;
+        runden_done++;
 
         // Nachlauf: M6 laeuft noch 2s, damit letzte Karte vom Band kommt
         HAL_Delay(3000);
@@ -592,9 +596,41 @@ void Phase3_Auswurf(int spieler_anzahl)
         HAL_Delay(1000);
     }
 
-    // Keine Karten mehr unten -> alles stoppen & System in Wartezustand
+    // Keine Karten mehr unten oder gewünschte Kartenanzahl erreicht
     All_Motors_Stop_Immediate();
     g_SystemState = SYSTEM_EMERGENCY_STOP;
 }
 #endif
 
+// ============================================================
+// PHASE 3 FLUSH: Alle Karten an Position 1 auswerfen
+// ============================================================
+void Phase3_Flush(void)
+{
+    // M6 an + Vorlauf
+    HAL_GPIO_WritePin(M6_WelleUnten_IN3_GPIO_Port, M6_WelleUnten_IN3_Pin, GPIO_PIN_SET);
+    HAL_Delay(2000);
+
+    while (Lichtschranke_Is_Card_Detected(3)) {
+        Check_Encoder_Button();
+        if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
+            All_Motors_Stop_Immediate();
+            return;
+        }
+
+        // M7 auslösen – M8 bleibt still, alles auf eine Position
+        HAL_GPIO_WritePin(M7_SchieberUnten_IN1_GPIO_Port, M7_SchieberUnten_IN1_Pin, GPIO_PIN_SET);
+        HAL_Delay(HALF_TURN_TIME_MS);
+        HAL_GPIO_WritePin(M7_SchieberUnten_IN1_GPIO_Port, M7_SchieberUnten_IN1_Pin, GPIO_PIN_RESET);
+        HAL_Delay(500);
+    }
+
+    // Nachlauf: M6 laeuft noch etwas weiter, damit letzte Karte sicher vom Band kommt
+    HAL_Delay(3000);
+
+    // Feeder aus
+    HAL_GPIO_WritePin(M6_WelleUnten_IN3_GPIO_Port, M6_WelleUnten_IN3_Pin, GPIO_PIN_RESET);
+
+    All_Motors_Stop_Immediate();
+    g_SystemState = SYSTEM_EMERGENCY_STOP;
+}
