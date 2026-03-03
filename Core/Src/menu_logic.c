@@ -105,7 +105,7 @@ static void Draw_Startup_Screen(void) {
 
 void Menu_Init(void) {
     ILI9341_Init();
-    ILI9341_Set_Rotation(SCREEN_HORIZONTAL_1);
+    ILI9341_Set_Rotation(SCREEN_HORIZONTAL_2);
     HAL_TIM_Encoder_Start(&htim8, TIM_CHANNEL_ALL);
 
     // Startup / Waiting Screen (static); blinking will be in loop

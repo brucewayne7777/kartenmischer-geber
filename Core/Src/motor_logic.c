@@ -38,14 +38,14 @@ void M8_Rotate(int steps, int delay_ms, int direction)
     int ramp_len = steps / 3;
     if (ramp_len < 5) {
         ramp_len = 5;
-    } else if (ramp_len > 120) {
-        ramp_len = 120;
+    } else if (ramp_len > 150) {
+        ramp_len = 150;
     }
 
     // Start langsamer als Ziel, für mehr Anlaufmoment (max. 40ms)
-    uint32_t start_delay = delay_us_target * 4U;
-    if (start_delay > 40000U) {
-        start_delay = 40000U;
+    uint32_t start_delay = delay_us_target * 5U;
+    if (start_delay > 50000U) {
+        start_delay = 50000U;
     }
 
     uint32_t accel_step = (start_delay - delay_us_target) / (uint32_t)ramp_len;
@@ -89,8 +89,8 @@ void M8_Rotate(int steps, int delay_ms, int direction)
         if (current_delay < delay_us_target) {
             current_delay = delay_us_target;
         }
-        if (current_delay > 40000U) {
-            current_delay = 40000U;
+        if (current_delay > 50000U) {
+            current_delay = 50000U;
         }
 
         delay_us(current_delay);
@@ -283,7 +283,7 @@ void Phase1_Sortieren_1Minute(void)
         // M1 rückwärts
         HAL_GPIO_WritePin(M1_SchieberOben_IN1_M1_DIR_GPIO_Port, M1_SchieberOben_IN1_M1_DIR_Pin, GPIO_PIN_RESET);
         HAL_GPIO_WritePin(M1_SchieberOben_IN2_M1_DIR_GPIO_Port, M1_SchieberOben_IN2_M1_DIR_Pin, GPIO_PIN_SET);
-        HAL_Delay(1400);
+        HAL_Delay(750);
 
         // Prüfen, ob noch Karte oben
         if (!Lichtschranke_Is_Card_Detected(1)) break;
@@ -437,18 +437,17 @@ void Phase2_Transport_1Minute(void)
     HAL_GPIO_WritePin(M3_WelleRechts_IN1_GPIO_Port, M3_WelleRechts_IN1_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(M3_WelleRechts_IN2_GPIO_Port, M3_WelleRechts_IN2_Pin, GPIO_PIN_RESET);
 
-    // Zuerst nur M4 für ca. 3 Sekunden laufen lassen (vor dem normalen M4/M5-Takt)
+    // Zuerst nur M4 für ca. 1 Sekunde laufen lassen
     if (Lichtschranke_Is_Card_Detected(2) || Lichtschranke_Is_Card_Detected(4)) {
         HAL_GPIO_WritePin(M4_SchieberLinks_IN3_GPIO_Port, M4_SchieberLinks_IN3_Pin, GPIO_PIN_SET);
 
         uint32_t t_start = HAL_GetTick();
-        while ((HAL_GetTick() - t_start) < 1000) { // ca. 1 s
+        while ((HAL_GetTick() - t_start) < 1000) {
             Check_Encoder_Button();
             if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
                 All_Motors_Stop_Immediate();
                 return;
             }
-            // Wenn beide Trichter schon leer sind, vorzeitig abbrechen
             if (!Lichtschranke_Is_Card_Detected(2) && !Lichtschranke_Is_Card_Detected(4)) {
                 break;
             }
@@ -458,7 +457,7 @@ void Phase2_Transport_1Minute(void)
         HAL_GPIO_WritePin(M4_SchieberLinks_IN3_GPIO_Port, M4_SchieberLinks_IN3_Pin, GPIO_PIN_RESET);
     }
 
-    // Danach: wie bisher M4/M5 im Wechsel takten, solange Karten in den Trichtern sind
+    // M4/M5 im Wechsel takten, solange Karten in den Trichtern sind
     while (Lichtschranke_Is_Card_Detected(2) || Lichtschranke_Is_Card_Detected(4)) {
         Check_Encoder_Button();
         if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
@@ -479,15 +478,26 @@ void Phase2_Transport_1Minute(void)
         HAL_Delay(PAUSE_BETWEEN_MS);
     }
 
-    // Keine Karten mehr in der Mitte/den Trichtern -> alles stoppen
-    HAL_GPIO_WritePin(M2_WelleLinks_IN3_GPIO_Port, M2_WelleLinks_IN3_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(M2_WelleLinks_IN4_GPIO_Port, M2_WelleLinks_IN4_Pin, GPIO_PIN_RESET);
-
-    HAL_GPIO_WritePin(M3_WelleRechts_IN1_GPIO_Port, M3_WelleRechts_IN1_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(M3_WelleRechts_IN2_GPIO_Port, M3_WelleRechts_IN2_Pin, GPIO_PIN_RESET);
-
+    // ── NEU: M4/M5 sofort stoppen ──────────────────────────────────────────
     HAL_GPIO_WritePin(M4_SchieberLinks_IN3_GPIO_Port, M4_SchieberLinks_IN3_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(M5_SchieberRechts_IN1_GPIO_Port, M5_SchieberRechts_IN1_Pin, GPIO_PIN_RESET);
+
+    // ── NEU: M2/M3 Nachlauf 2s — letzte Karten auf dem Band durchlaufen ───
+    uint32_t t_nachlauf = HAL_GetTick();
+    while ((HAL_GetTick() - t_nachlauf) < 2000) {
+        Check_Encoder_Button();
+        if (g_SystemState == SYSTEM_EMERGENCY_STOP) {
+            All_Motors_Stop_Immediate();
+            return;
+        }
+        HAL_Delay(20);
+    }
+
+    // ── NEU: Jetzt erst M2/M3 stoppen ──────────────────────────────────────
+    HAL_GPIO_WritePin(M2_WelleLinks_IN3_GPIO_Port, M2_WelleLinks_IN3_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(M2_WelleLinks_IN4_GPIO_Port, M2_WelleLinks_IN4_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(M3_WelleRechts_IN1_GPIO_Port, M3_WelleRechts_IN1_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(M3_WelleRechts_IN2_GPIO_Port, M3_WelleRechts_IN2_Pin, GPIO_PIN_RESET);
 }
 #endif
 
@@ -561,7 +571,7 @@ void Phase3_Auswurf(int spieler_anzahl, int karten_pro_spieler)
     
     int total_steps_per_rev = 600; 
     int steps_per_segment = total_steps_per_rev / spieler_anzahl;
-    int speed_delay = 12;
+    int speed_delay = 16;
 
     static int direction = 1; // 1 = vorwärts, 0 = rückwärts (Snake)
     int runden_done = 0;
